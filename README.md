@@ -373,4 +373,4 @@ await obd2.configObdWithJSON(json, {int requestCode});
 	```
 After call ```configObdWithJSON```, you can access received data in ```setOnDataReceived``` method.
 
-Created with ❤️ at [Begaz](https://begaz.app).
+
