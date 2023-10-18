@@ -8,7 +8,7 @@
 
 
    <application
-        android:label="obd2_plugin_example"
+        android:label="Под капотом"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

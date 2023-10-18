@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:obd2_plugin/obd2_plugin.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:obd2_plugin_example/body.dart';
 
 void main() {
   runApp(const MyApp());
@@ -11,6 +12,7 @@ void main() {
 
 class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
+
   static _MyAppState of(BuildContext context) => context.findAncestorStateOfType()!;
 
   @override
@@ -25,21 +27,29 @@ class _MyAppState extends State<MyApp> {
     super.initState();
   }
 
+  List<String>? dtcCodes;
+  bool isInitial = true;
   var obd2 = Obd2Plugin();
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: "OBDII Plugin Test",
-      locale: const Locale.fromSubtags(languageCode: 'en'),
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('OBDII Plugin Test'),
+        body: SafeArea(
+          child: Body(
+            platformVersion: _platformVersion,
+            dtcCodes: dtcCodes,
+            isInitial: isInitial,
+          ),
         ),
-        body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+        floatingActionButton: Float(
+          onComplete: (result) {
+            setState(() {
+              dtcCodes = result;
+              isInitial = false;
+            });
+          },
         ),
-        floatingActionButton: const Float(),
         floatingActionButtonAnimator: FloatingActionButtonAnimator.scaling,
         floatingActionButtonLocation: FloatingActionButtonLocation.miniCenterFloat,
       ),
@@ -47,29 +57,39 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-
 class Float extends StatelessWidget {
-  const Float({Key? key}) : super(key: key);
+  const Float({
+    Key? key,
+    required this.onComplete,
+  }) : super(key: key);
+  final Function(List<String> result) onComplete;
 
   @override
   Widget build(BuildContext context) {
     return FloatingActionButton(
+      backgroundColor: Colors.black,
       child: const Icon(Icons.bluetooth),
       onPressed: () async {
-        if(!(await MyApp.of(context).obd2.isBluetoothEnable)){
-          await MyApp.of(context).obd2.enableBluetooth ;
+        if (!(await MyApp.of(context).obd2.isBluetoothEnable)) {
+          await MyApp.of(context).obd2.enableBluetooth;
         }
-        if (!(await MyApp.of(context).obd2.hasConnection)){
+        if (!(await MyApp.of(context).obd2.hasConnection)) {
           await showBluetoothList(context, MyApp.of(context).obd2);
         } else {
-          if (!(await MyApp.of(context).obd2.isListenToDataInitialed)){
-            MyApp.of(context).obd2.setOnDataReceived((command, response, requestCode){
-              print("$command => $response");
-            });
+          if (!(await MyApp.of(context).obd2.isListenToDataInitialed)) {
+            MyApp.of(context).obd2.setOnDataReceived(
+              (command, response, requestCode) {
+                print("$command => $response");
+              },
+              (dtsCodes) {
+                onComplete(dtsCodes);
+              },
+            );
           }
-          await Future.delayed(Duration(milliseconds: await MyApp.of(context).obd2.configObdWithJSON('''[
+          await Future.delayed(
+              Duration(milliseconds: await MyApp.of(context).obd2.configObdWithJSON('''[
             {
-                "command": "AT Z",
+                "command": "AT@1",
                 "description": "",
                 "status": true
             },
@@ -109,12 +129,13 @@ class Float extends StatelessWidget {
                 "status": true
             },
             {
-                "command": "01 00",
+                "command": "03",
                 "description": "",
                 "status": true
             }
-        ]''')), (){});
-          await Future.delayed(Duration(milliseconds: await MyApp.of(context).obd2.getParamsFromJSON('''
+        ]''')), () {});
+          await Future.delayed(
+              Duration(milliseconds: await MyApp.of(context).obd2.getParamsFromJSON('''
         [
             {
                 "PID": "AT RV",
@@ -157,8 +178,9 @@ class Float extends StatelessWidget {
                 "status": true
             }
         ]
-      ''')), (){});
-          await Future.delayed(Duration(milliseconds: await MyApp.of(context).obd2.getDTCFromJSON('''
+      ''')), () {});
+          await Future.delayed(
+              Duration(milliseconds: await MyApp.of(context).obd2.getDTCFromJSON('''
             [
     {
         "id": 1,
@@ -308,7 +330,7 @@ class Float extends StatelessWidget {
         "status": true
     }
 ]
-          ''')), (){
+          ''')), () {
             print("dtc is finished");
           });
         }
@@ -317,41 +339,49 @@ class Float extends StatelessWidget {
   }
 }
 
-
 Future<void> showBluetoothList(BuildContext context, Obd2Plugin obd2plugin) async {
-  List<BluetoothDevice> devices = await obd2plugin.getPairedDevices ;
+  List<BluetoothDevice> devices = await obd2plugin.getPairedDevices;
   showModalBottomSheet(
       context: context,
       builder: (builder) {
-        return Container(
-          padding: const EdgeInsets.only(top: 0),
-          width: double.infinity,
-          height: devices.length * 50,
-          child: ListView.builder(
-            itemCount: devices.length,
-            itemBuilder: (context, index){
-              return SizedBox(
-                height: 50,
-                child: TextButton(
-                  onPressed: (){
-                    obd2plugin.getConnection(devices[index], (connection)
-                    {
-                      print("connected to bluetooth device.");
-                      Navigator.pop(builder);
-                    }, (message) {
-                      print("error in connecting: $message");
-                      Navigator.pop(builder);
-                    });
-                  },
-                  child: Center(
-                    child: Text(devices[index].name.toString()),
-                  ),
-                ),
-              );
-            },
-          ),
+        return Column(
+          children: [
+            const SizedBox(height: 5),
+            const Text('Выберите устройство OBD-II:'),
+            const Divider(
+              thickness: 1,
+            ),
+            Container(
+              padding: const EdgeInsets.only(top: 0),
+              width: double.infinity,
+              height: devices.length * 50,
+              child: ListView.builder(
+                itemCount: devices.length,
+                itemBuilder: (context, index) {
+                  return SizedBox(
+                    height: 50,
+                    child: TextButton(
+                      onPressed: () {
+                        obd2plugin.getConnection(devices[index], (connection) {
+                          print("connected to bluetooth device.");
+                          Navigator.pop(builder);
+                        }, (message) {
+                          print("error in connecting: $message");
+                          Navigator.pop(builder);
+                        });
+                      },
+                      child: Center(
+                        child: Text(
+                          devices[index].name.toString(),
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         );
-      }
-  );
+      });
 }
-
