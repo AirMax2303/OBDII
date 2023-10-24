@@ -78,10 +78,10 @@ class Float extends StatelessWidget {
         } else {
           if (!(await MyApp.of(context).obd2.isListenToDataInitialed)) {
             MyApp.of(context).obd2.setOnDataReceived(
-              (command, response, requestCode) {
+                  (command, response, requestCode) {
                 print("$command => $response");
               },
-              (dtsCodes) {
+                  (dtsCodes) {
                 onComplete(dtsCodes);
               },
             );
